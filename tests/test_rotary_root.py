@@ -31,7 +31,7 @@ def test_rotary_single_tensor(inplace, rotary_fraction, dtype):
     angle = torch.randn(seqlen, rotary_dim // 2, device='cuda')
     cos = torch.cos(angle).to(dtype=dtype)
     sin = torch.sin(angle).to(dtype=dtype)
-    out = apply_rotary_emb_func(x, cos, sin, inplace)
+    out = apply_rotary_emb_func(x, cos, sin, False, inplace)
     out_pt = apply_rotary_emb_torch(x_pt, cos, sin)
     # Numerical error if we just do any arithmetic
     atol = ((out + 0.3 - 0.3) - out).abs().max().item()
@@ -41,4 +41,7 @@ def test_rotary_single_tensor(inplace, rotary_fraction, dtype):
     out.backward(g)
     out_pt.backward(g_pt)
     atol = ((x_pt.grad + 0.3 - 0.3) - x_pt.grad).abs().max().item()
+    print("DIFFERENCE: ", (x.grad - x_pt.grad).abs().max() )
+    print("RTOL: ", rtol)
+    print("ATOL: ", atol)
     assert torch.allclose(x.grad, x_pt.grad, rtol=rtol, atol=2 * atol)

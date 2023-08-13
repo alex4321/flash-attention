@@ -9,9 +9,8 @@ import pytest
 from einops import rearrange
 
 from transformers.models.gpt_neox.modeling_gpt_neox import GPTNeoXRotaryEmbedding as RotaryEmbeddingNeoX
-from transformers.models.gpt_neox.modeling_gpt_neox import apply_rotary_pos_emb as apply_rotary_pos_emb_neox
-from transformers.models.gptj.modeling_gptj import apply_rotary_pos_emb as apply_rotary_pos_emb_gptj
-
+from transformers.models.gpt_neox.modeling_gpt_neox import rotate_half as rotate_half_gpt_neox
+from transformers.models.gptj.modeling_gptj import rotate_every_two
 from flash_attn.layers.rotary import apply_rotary_emb_func, apply_rotary_emb_qkv_
 from flash_attn.layers.rotary import RotaryEmbedding
 
@@ -23,6 +22,31 @@ def fixed_pos_embedding(x, seq_dim=1, seq_len=None):  # no changes in this funct
     inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2) / dim))
     sinusoid_inp = torch.einsum("i , j -> i j", torch.arange(seq_len), inv_freq).to(x.device).float()
     return torch.sin(sinusoid_inp), torch.cos(sinusoid_inp)
+
+
+def apply_rotary_pos_emb_neox(q, k, cos, sin, offset):
+    cos = cos[..., offset : q.shape[-2] + offset, :]
+    sin = sin[..., offset : q.shape[-2] + offset, :]
+    q_embed = (q * cos) + (rotate_half_gpt_neox(q) * sin)
+    k_embed = (k * cos) + (rotate_half_gpt_neox(k) * sin)
+    return q_embed, k_embed
+
+
+def duplicate_interleave(m):
+    """
+    A simple version of `torch.repeat_interleave` for duplicating a matrix while interleaving the copy.
+    """
+    dim0 = m.shape[0]
+    m = m.view(-1, 1)  # flatten the matrix
+    m = m.repeat(1, 2)  # repeat all elements into the 2nd dimension
+    m = m.view(dim0, -1)  # reshape into a matrix, interleaving the copy
+    return m
+
+
+def apply_rotary_pos_emb_gptj(x, sincos, offset=0):
+    sin, cos = (duplicate_interleave(t)[None, offset : x.shape[1] + offset, None, :] for t in sincos)
+    # einsum notation for lambda t: repeat(t[offset:x.shape[1]+offset,:], "n d -> () n () (d j)", j=2)
+    return (x * cos) + (rotate_every_two(x) * sin)
 
 
 # NeoX-style rotary embedding

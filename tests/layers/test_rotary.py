@@ -8,13 +8,21 @@ import pytest
 
 from einops import rearrange
 
-from transformers.models.gpt_neox.modeling_gpt_neox import RotaryEmbedding as RotaryEmbeddingNeoX
+from transformers.models.gpt_neox.modeling_gpt_neox import GPTNeoXRotaryEmbedding as RotaryEmbeddingNeoX
 from transformers.models.gpt_neox.modeling_gpt_neox import apply_rotary_pos_emb as apply_rotary_pos_emb_neox
-from transformers.models.gptj.modeling_gptj import fixed_pos_embedding
 from transformers.models.gptj.modeling_gptj import apply_rotary_pos_emb as apply_rotary_pos_emb_gptj
 
 from flash_attn.layers.rotary import apply_rotary_emb_func, apply_rotary_emb_qkv_
 from flash_attn.layers.rotary import RotaryEmbedding
+
+
+def fixed_pos_embedding(x, seq_dim=1, seq_len=None):  # no changes in this function
+    dim = x.shape[-1]
+    if seq_len is None:
+        seq_len = x.shape[seq_dim]
+    inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2) / dim))
+    sinusoid_inp = torch.einsum("i , j -> i j", torch.arange(seq_len), inv_freq).to(x.device).float()
+    return torch.sin(sinusoid_inp), torch.cos(sinusoid_inp)
 
 
 # NeoX-style rotary embedding

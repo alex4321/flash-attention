@@ -6,7 +6,7 @@ import pytest
 
 from einops import rearrange
 
-from flash_attn.losses.cross_entropy import CrossEntropyLossApex
+from flash_attn.losses.cross_entropy import CrossEntropyLoss
 
 is_sm8x = torch.cuda.get_device_capability('cuda')[0] >= 8
 
@@ -29,7 +29,7 @@ def test_cross_entropy_loss_apex(vocab_size, smoothing, inplace_backward, dtype)
     y = torch.randint(0, vocab_size, (batch_size * seqlen,), dtype=torch.long, device=device)
     y[torch.randperm(batch_size * seqlen)[:10]] = -100
     model_pt = torch.nn.CrossEntropyLoss(label_smoothing=smoothing)
-    model = CrossEntropyLossApex(label_smoothing=smoothing, inplace_backward=inplace_backward)
+    model = CrossEntropyLoss(label_smoothing=smoothing, inplace_backward=inplace_backward)
     out = model(x, y)
     out_pt = model_pt(x_pt.float(), y)
     assert torch.allclose(out, out_pt, rtol=rtol, atol=atol)

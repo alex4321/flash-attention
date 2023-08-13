@@ -41,7 +41,4 @@ def test_rotary_single_tensor(inplace, rotary_fraction, dtype):
     out.backward(g)
     out_pt.backward(g_pt)
     atol = ((x_pt.grad + 0.3 - 0.3) - x_pt.grad).abs().max().item()
-    print("DIFFERENCE: ", (x.grad - x_pt.grad).abs().max() )
-    print("RTOL: ", rtol)
-    print("ATOL: ", atol)
     assert torch.allclose(x.grad, x_pt.grad, rtol=rtol, atol=2 * atol)
